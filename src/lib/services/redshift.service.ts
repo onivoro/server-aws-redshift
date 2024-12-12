@@ -65,7 +65,7 @@ export class RedshiftDataService {
         }
     }
 
-    async createDatabaseUser(_: { database: string, workgroupName: string, user: string }) {
+    async createDatabaseUser(_: { database: string, workgroupName: string, user: string }): Promise<string> {
         try {
 
             const checkResult = await this.redshiftDataClient.send(new ExecuteStatementCommand({
@@ -89,16 +89,21 @@ export class RedshiftDataService {
                 });
 
                 const createResult = await this.redshiftDataClient.send(createUserCommand);
+
                 await this.waitForStatement(createResult.Id!);
+
                 console.log(`Created user: ${_.user}`);
+
+                return placeholderPassword;
             } else {
                 console.log(`User "${_.user} already exists`);
+
+                return '';
             }
 
-            return true;
         } catch (error: any) {
             console.warn({ detail: `Warning creating user ${_.user}`, error });
-            return false;
+            throw error;
         }
     }
 
