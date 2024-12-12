@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { DescribeStatementCommand, ExecuteStatementCommand, RedshiftDataClient } from "@aws-sdk/client-redshift-data";
-import { ServerAwsRedshiftDataConfig } from '../classes/server-aws-redshift-config.class';
 import { GetWorkgroupCommand, RedshiftServerlessClient } from '@aws-sdk/client-redshift-serverless';
 import { randomUUID } from 'crypto';
 
@@ -9,11 +8,9 @@ export class RedshiftDataService {
     constructor(
         private redshiftDataClient: RedshiftDataClient,
         private redshiftServerlessClient: RedshiftServerlessClient,
-        private config: ServerAwsRedshiftDataConfig,
     ) { }
 
-    async waitForStatement(statementId: string) {
-        const maxAttempts = 10;
+    async waitForStatement(statementId: string, maxAttempts = 10, delay = 1000) {
         let attempts = 0;
 
         while (attempts < maxAttempts) {
@@ -32,7 +29,7 @@ export class RedshiftDataService {
             }
 
             attempts++;
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, delay));
         }
 
         throw new Error('Timeout waiting for SQL statement to complete');
@@ -44,7 +41,7 @@ export class RedshiftDataService {
         );
 
         if (!workgroupResponse?.workgroup?.endpoint?.address) {
-            console.error(`Could not retrieve endpoint for workgroup "${workgroupName}"`);
+            console.error(`Could not retrieve endpoint for workgroupName "${workgroupName}"`);
 
             return;
         }
@@ -52,33 +49,29 @@ export class RedshiftDataService {
         return workgroupResponse;
     }
 
-    async addIamUserToDatabaseGroup(params: { Database: string, WorkgroupName: string, User: string, Group: string }) {
-        const { Database, WorkgroupName, User, Group } = params;
-
+    async addIamUserToDatabaseGroup(_: { database: string, workgroupName: string, user: string, group: string }) {
         try {
             const groupResult = await this.redshiftDataClient.send(new ExecuteStatementCommand({
-                Database,
-                Sql: `ALTER GROUP ${Group} ADD USER "${User}";`,
-                WorkgroupName
+                Database: _.database,
+                Sql: `ALTER GROUP ${_.group} ADD USER "${_.user}";`,
+                WorkgroupName: _.workgroupName
             }));
 
             await this.waitForStatement(groupResult.Id!);
 
-            console.log(`Added user "${User}" to group "${Group}`);
+            console.log(`Added user "${_.user}" to group "${_.group}`);
         } catch (error: any) {
-            console.warn({ detail: `Warning adding ${User} to group:`, error });
+            console.warn({ detail: `Warning adding ${_.user} to group:`, error });
         }
     }
 
-    async createDatabaseUser(params: { Database: string, WorkgroupName: string, User: string }) {
-        const { Database, WorkgroupName, User } = params;
-
+    async createDatabaseUser(_: { database: string, workgroupName: string, user: string }) {
         try {
 
             const checkResult = await this.redshiftDataClient.send(new ExecuteStatementCommand({
-                Database,
+                Database: _.database,
                 Sql: `SELECT u.usename as username FROM pg_user u;`,
-                WorkgroupName
+                WorkgroupName: _.workgroupName
             }));
 
             await this.waitForStatement(checkResult.Id!);
@@ -90,90 +83,63 @@ export class RedshiftDataService {
                 const placeholderPassword = `IAM_${randomUUID().replace(/-/g, '_')}`;
 
                 const createUserCommand = new ExecuteStatementCommand({
-                    Database,
-                    Sql: `CREATE USER ${User} PASSWORD '${placeholderPassword}';`,
-                    WorkgroupName
+                    Database: _.database,
+                    Sql: `CREATE USER ${_.user} PASSWORD '${placeholderPassword}';`,
+                    WorkgroupName: _.workgroupName
                 });
 
                 const createResult = await this.redshiftDataClient.send(createUserCommand);
                 await this.waitForStatement(createResult.Id!);
-                console.log(`Created user: ${User}`);
+                console.log(`Created user: ${_.user}`);
             } else {
-                console.log(`User "${User} already exists`);
+                console.log(`User "${_.user} already exists`);
             }
 
             return true;
         } catch (error: any) {
-            console.warn({detail: `Warning creating user ${User}`, error});
+            console.warn({ detail: `Warning creating user ${_.user}`, error });
             return false;
         }
     }
 
-    async grantUsageOnSchema(params: { GroupName: string, Database: string, WorkgroupName: string, Schema: string, Group: string }) {
-        const { GroupName, Database, WorkgroupName, Schema, Group } = params;
+    async grantUsageOnSchema(_: { database: string, workgroupName: string, schema: string, group: string }) {
 
         try {
-            const checkResult = await this.redshiftDataClient.send(new ExecuteStatementCommand({
-                Database,
-                Sql: `SELECT 1 FROM pg_group WHERE groname = '${Group}';`,
-                WorkgroupName
-            }));
-
-            await this.waitForStatement(checkResult.Id!);
-
-            const describeCommand = new DescribeStatementCommand({ Id: checkResult.Id });
-            const checkStatus = await this.redshiftDataClient.send(describeCommand);
-
-            if (!checkStatus.ResultRows) {
-                const createGroupCommand = new ExecuteStatementCommand({
-                    Database,
-                    Sql: 'CREATE GROUP ${Group};',
-                    WorkgroupName
-                });
-
-                const createResult = await this.redshiftDataClient.send(createGroupCommand);
-                await this.waitForStatement(createResult.Id!);
-                console.log('Created "${Group}" group');
-            } else {
-                console.log('"${Group}" group already exists');
-            }
-
             const setupStatements = [
-                `GRANT USAGE ON SCHEMA ${Schema} TO GROUP ${Group};`,
-                `GRANT SELECT ON ALL TABLES IN SCHEMA ${Schema} TO GROUP ${Group};`,
-                `ALTER DEFAULT PRIVILEGES IN SCHEMA ${Schema} GRANT SELECT ON TABLES TO GROUP ${Group};`,
+                `GRANT USAGE ON SCHEMA ${_.schema} TO GROUP ${_.group};`,
+                `GRANT SELECT ON ALL TABLES IN SCHEMA ${_.schema} TO GROUP ${_.group};`,
+                `ALTER DEFAULT PRIVILEGES IN SCHEMA ${_.schema} GRANT SELECT ON TABLES TO GROUP ${_.group};`,
             ];
 
             for (const Sql of setupStatements) {
                 const executeStatementCommand = new ExecuteStatementCommand({
-                    Database,
+                    Database: _.database,
                     Sql,
-                    WorkgroupName
+                    WorkgroupName: _.workgroupName
                 });
 
                 try {
                     const result = await this.redshiftDataClient.send(executeStatementCommand);
                     await this.waitForStatement(result.Id!);
-                    console.log(`Executed SQL: ${Sql}`);
+                    console.log(Sql);
                 } catch (error: any) {
-                    console.warn(`Warning executing SQL: ${Sql}`, error.message);
+                    console.warn({ Sql, error });
                 }
             }
 
         } catch (error) {
-            console.error({detail: 'Error in grantUsageOnSchema:', error});
+            console.error({ error });
             throw error;
         }
     }
 
-    async createDbGroupFromIamGroupIfNotExists(params: {iamGroup: string, Database: string, WorkgroupName: string}): Promise<any> {
-        const { iamGroup, Database, WorkgroupName } = params;
+    async createDbGroupFromIamGroupIfNotExists(_: { iamGroup: string, database: string, workgroupName: string }): Promise<any> {
 
         try {
             const checkResult = await this.redshiftDataClient.send(new ExecuteStatementCommand({
-                Database,
-                Sql: `SELECT 1 FROM pg_group WHERE groname = '${iamGroup}';`,
-                WorkgroupName
+                Database: _.database,
+                Sql: `SELECT 1 FROM pg_group WHERE groname = '${_.iamGroup}';`,
+                WorkgroupName: _.workgroupName
             }));
 
             await this.waitForStatement(checkResult.Id!);
@@ -183,19 +149,19 @@ export class RedshiftDataService {
 
             if (!checkStatus.ResultRows) {
                 const createGroupCommand = new ExecuteStatementCommand({
-                    Database,
-                    Sql: `CREATE GROUP ${iamGroup};`,
-                    WorkgroupName
+                    Database: _.database,
+                    Sql: `CREATE GROUP ${_.iamGroup};`,
+                    WorkgroupName: _.workgroupName
                 });
 
                 const createResult = await this.redshiftDataClient.send(createGroupCommand);
                 await this.waitForStatement(createResult.Id!);
-                console.log(`Created "${iamGroup}" group`);
+                console.log(`Created "${_.iamGroup}" group`);
             } else {
-                console.log(`"${iamGroup}" group already exists`);
+                console.log(`"${_.iamGroup}" group already exists`);
             }
         } catch (error: any) {
-            console.error({error});
+            console.error({ error });
             throw error;
         }
     }
