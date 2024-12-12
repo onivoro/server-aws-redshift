@@ -1,0 +1,49 @@
+{
+    "name": "@onivoro/server-aws-redshift",
+    "version": "22.0.0",
+    "repository": {
+        "url": "git+https://github.com/onivoro/server-aws-redshift.git"
+    },
+    "main": "dist/cjs/index.js",
+    "module": "dist/esm/index.js",
+    "types": "dist/types/index.d.ts",
+    "files": [
+        "dist/*"
+    ],
+    "scripts": {
+        "onx": "onx",
+        "build": "onx Build",
+        "deploy": "onx Publish",
+        "test": "onx Test",
+        "update": "onx Update"
+    },
+    "exports": {
+        ".": {
+            "types": "./dist/types/index.d.ts",
+            "require": "./dist/cjs/index.js",
+            "import": "./dist/esm/index.js",
+            "default": "./dist/esm/lib.js"
+        }
+    },
+    "onx": {
+        "platform": "server",
+        "module": "commonjs"
+    },
+    "devDependencies": {
+        "@onivoro/cli": "^22.0.8",
+        "@types/jest": "*",
+        "@types/node": "22.8.1",
+        "typescript": "*"
+    },
+    "engines": {
+        "node": "22.10.0",
+        "npm": "10.9.0"
+    },
+    "dependencies": {
+        "@aws-sdk/client-redshift": "^3.699.0",
+        "@aws-sdk/client-redshift-data": "^3.709.0",
+        "@aws-sdk/client-redshift-serverless": "^3.709.0",
+        "@nestjs/common": "^10.4.6",
+        "@onivoro/server-common": "^22.0.3"
+    }
+}

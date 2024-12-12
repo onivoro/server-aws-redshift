@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./node_modules/@onivoro/cli/src/assets/tsconfig.22.json",
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "test",
+    "dist",
+    "**/*spec.ts",
+    "**/*.snap"
+  ],
+  "compilerOptions": {
+    "strictNullChecks": false
+  }
+}
