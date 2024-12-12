@@ -170,4 +170,17 @@ export class RedshiftDataService {
             throw error;
         }
     }
+
+    async query(_: { database: string, workgroupName: string }, Sql: string) {
+        const result = await this.redshiftDataClient.send(new ExecuteStatementCommand({
+            Database: _.database,
+            Sql,
+            WorkgroupName: _.workgroupName
+        }));
+
+        return await this.waitForStatement(result.Id!);
+
+        // return await this.redshiftDataClient.send(new DescribeStatementCommand({ Id: result.Id }));
+
+    }
 }
