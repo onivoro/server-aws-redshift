@@ -1,6 +1,6 @@
 {
     "name": "@onivoro/server-aws-redshift",
-    "version": "22.0.5",
+    "version": "22.0.6",
     "repository": {
         "url": "git+https://github.com/onivoro/server-aws-redshift.git"
     },
