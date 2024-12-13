@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DescribeStatementCommand, ExecuteStatementCommand, RedshiftDataClient } from "@aws-sdk/client-redshift-data";
+import { DescribeStatementCommand, ExecuteStatementCommand, GetStatementResultCommand, RedshiftDataClient } from "@aws-sdk/client-redshift-data";
 import { GetWorkgroupCommand, RedshiftServerlessClient } from '@aws-sdk/client-redshift-serverless';
 import { randomUUID } from 'crypto';
 
@@ -171,7 +171,7 @@ export class RedshiftDataService {
         }
     }
 
-    async query(_: { database: string, workgroupName: string }, Sql: string) {
+    async queryV1(_: { database: string, workgroupName: string }, Sql: string) {
         const result = await this.redshiftDataClient.send(new ExecuteStatementCommand({
             Database: _.database,
             Sql,
@@ -180,4 +180,49 @@ export class RedshiftDataService {
 
         return await this.waitForStatement(result.Id!);
     }
+
+
+    async query(_: { database: string, workgroupName: string }, Sql: string) {
+        try {
+            const executeCommand = new ExecuteStatementCommand({
+                Database: _.database,
+                Sql,
+                WorkgroupName: _.workgroupName
+            });
+
+            const { Id } = await this.redshiftDataClient.send(executeCommand);
+
+            if (!Id) {
+                throw new Error("Failed to get statement ID");
+            }
+
+            let status = "";
+
+            do {
+                const describeCommand = new DescribeStatementCommand({ Id });
+                const { Status } = await this.redshiftDataClient.send(describeCommand);
+                status = Status || "";
+
+                if (status === "FAILED") {
+                    throw new Error("Query execution failed");
+                }
+
+                if (status !== "FINISHED") {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            } while (status !== "FINISHED");
+
+            const getResultsCommand = new GetStatementResultCommand({ Id });
+            const results = await this.redshiftDataClient.send(getResultsCommand);
+
+            const records = results.Records || [];
+            return records.map(record => {
+                return record.map(field => field.stringValue || field.longValue || field.doubleValue);
+            });
+        } catch (error) {
+            console.error({detail: "Error executing query:", error});
+            throw error;
+        }
+    }
+
 }
