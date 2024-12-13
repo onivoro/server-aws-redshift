@@ -21,7 +21,7 @@ export class RedshiftDataService {
             const status = await this.redshiftDataClient.send(describeStatementCommand);
 
             if (status.Status === 'FINISHED') {
-                return;
+                return status.ResultRows;
             }
 
             if (status.Status === 'FAILED') {
@@ -179,8 +179,5 @@ export class RedshiftDataService {
         }));
 
         return await this.waitForStatement(result.Id!);
-
-        // return await this.redshiftDataClient.send(new DescribeStatementCommand({ Id: result.Id }));
-
     }
 }
