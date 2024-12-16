@@ -4,8 +4,10 @@ import { RedshiftDataClient } from '@aws-sdk/client-redshift-data';
 import { RedshiftDataService } from './services/redshift.service';
 import { ServerAwsRedshiftDataConfig } from './classes/server-aws-redshift-config.class';
 import { RedshiftServerlessClient } from '@aws-sdk/client-redshift-serverless';
+import { RedshiftClient } from '@aws-sdk/client-redshift';
 
-let redshiftClient: RedshiftDataClient | null = null;
+let redshiftClient: RedshiftClient | null = null;
+let redshiftDataClient: RedshiftDataClient | null = null;
 let redshiftServerlessClient: RedshiftServerlessClient | null = null;
 
 
@@ -17,37 +19,38 @@ export class ServerAwsRedshiftDataModule {
       providers: [
         {
           provide: RedshiftDataClient,
-          useFactory: () => redshiftClient
-            ? redshiftClient
-            : redshiftClient = new RedshiftDataClient({
-              region: config.AWS_REGION,
-              logger: console,
-              credentials: config.NODE_ENV === 'production'
-                ? undefined
-                : {
-                  accessKeyId: config.AWS_ACCESS_KEY_ID,
-                  secretAccessKey: config.AWS_SECRET_ACCESS_KEY
-                }
-            })
+          useFactory: () => redshiftDataClient
+            ? redshiftDataClient
+            : redshiftDataClient = new RedshiftDataClient(from(config))
         },
         {
           provide: RedshiftServerlessClient,
-          useFactory: () => redshiftClient
+          useFactory: () => redshiftDataClient
             ? redshiftServerlessClient
-            : redshiftServerlessClient = new RedshiftServerlessClient({
-              region: config.AWS_REGION,
-              logger: console,
-              credentials: config.NODE_ENV === 'production'
-                ? undefined
-                : {
-                  accessKeyId: config.AWS_ACCESS_KEY_ID,
-                  secretAccessKey: config.AWS_SECRET_ACCESS_KEY
-                }
-            })
+            : redshiftServerlessClient = new RedshiftServerlessClient(from(config))
+        },
+        {
+          provide: RedshiftClient,
+          useFactory: () => redshiftClient
+            ? redshiftClient
+            : redshiftClient = new RedshiftClient(from(config))
         },
         { provide: ServerAwsRedshiftDataConfig, useValue: config },
         RedshiftDataService
       ]
     })
   }
+}
+
+function from(config: ServerAwsRedshiftDataConfig) {
+  return {
+    region: config.AWS_REGION,
+    logger: console,
+    credentials: config.NODE_ENV === 'production'
+      ? undefined
+      : {
+        accessKeyId: config.AWS_ACCESS_KEY_ID,
+        secretAccessKey: config.AWS_SECRET_ACCESS_KEY
+      }
+  };
 }
