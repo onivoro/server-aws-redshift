@@ -200,7 +200,7 @@ export class RedshiftDataService {
 
             do {
                 const describeCommand = new DescribeStatementCommand({ Id });
-                const { Status } = await this.redshiftDataClient.send(describeCommand);
+                const { Status,  } = await this.redshiftDataClient.send(describeCommand);
                 status = Status || "";
 
                 if (status === "FAILED") {
@@ -212,13 +212,17 @@ export class RedshiftDataService {
                 }
             } while (status !== "FINISHED");
 
-            const getResultsCommand = new GetStatementResultCommand({ Id });
-            const results = await this.redshiftDataClient.send(getResultsCommand);
+            try {
+                const getResultsCommand = new GetStatementResultCommand({ Id });
+                const results = await this.redshiftDataClient.send(getResultsCommand);
 
-            const records = results.Records || [];
-            return records.map(record => {
-                return record.map(field => field.stringValue || field.longValue || field.doubleValue);
-            });
+                const records = results.Records || [];
+                return records.map(record => {
+                    return record.map(field => field.stringValue || field.longValue || field.doubleValue);
+                });
+            } catch (error) {
+                return [];
+            }
         } catch (error) {
             console.error({ detail: "Error executing query:", error });
             throw error;
