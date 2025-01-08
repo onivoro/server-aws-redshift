@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DescribeStatementCommand, ExecuteStatementCommand, GetStatementResultCommand, RedshiftDataClient } from "@aws-sdk/client-redshift-data";
-import { GetWorkgroupCommand, RedshiftServerlessClient } from '@aws-sdk/client-redshift-serverless';
+import { GetWorkgroupCommand, GetWorkgroupCommandInput, RedshiftServerlessClient } from '@aws-sdk/client-redshift-serverless';
 import { randomUUID } from 'crypto';
 
 @Injectable()
@@ -220,8 +220,38 @@ export class RedshiftDataService {
                 return record.map(field => field.stringValue || field.longValue || field.doubleValue);
             });
         } catch (error) {
-            console.error({detail: "Error executing query:", error});
+            console.error({ detail: "Error executing query:", error });
             throw error;
+        }
+    }
+
+    async getAssociatedIAmRolesByWorkgroup(_: { database: string, workgroupName: string }) {
+        try {
+            const query = `
+            SELECT
+              g.groname as role_name,
+              u.usename as member_name,
+              g.grosysid as role_id,
+              g.groowner as owner_id,
+              CASE WHEN pg_has_role(u.usename, g.groname, 'MEMBER') THEN true ELSE false END as is_member
+            FROM pg_group g
+            LEFT JOIN pg_user u ON u.usesysid = ANY(g.grolist)
+            WHERE EXISTS (
+              SELECT 1
+              FROM svv_redshift_databases d
+              WHERE d.database_name = current_database()
+              AND d.workgroup_name = $1
+            )
+            ORDER BY g.groname, u.usename;
+          `;
+
+            return await this.query(_, query)
+        } catch (error) {
+            if (error instanceof Error) {
+                console.error(`Error getting workgroup roles: ${error.message}`);
+                throw error;
+            }
+            throw new Error('An unknown error occurred');
         }
     }
 

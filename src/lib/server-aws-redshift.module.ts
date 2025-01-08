@@ -25,7 +25,7 @@ export class ServerAwsRedshiftDataModule {
         },
         {
           provide: RedshiftServerlessClient,
-          useFactory: () => redshiftDataClient
+          useFactory: () => redshiftServerlessClient
             ? redshiftServerlessClient
             : redshiftServerlessClient = new RedshiftServerlessClient(from(config))
         },
