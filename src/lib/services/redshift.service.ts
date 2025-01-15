@@ -200,11 +200,11 @@ export class RedshiftDataService {
 
             do {
                 const describeCommand = new DescribeStatementCommand({ Id });
-                const { Status,  } = await this.redshiftDataClient.send(describeCommand);
+                const { Status, Error: err } = await this.redshiftDataClient.send(describeCommand);
                 status = Status || "";
 
                 if (status === "FAILED") {
-                    throw new Error("Query execution failed");
+                    throw new Error(err);
                 }
 
                 if (status !== "FINISHED") {
