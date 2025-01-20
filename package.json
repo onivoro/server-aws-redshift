@@ -32,7 +32,7 @@
     "devDependencies": {
         "@onivoro/cli": "^22.0.8",
         "@types/jest": "*",
-        "@types/node": "22.8.1",
+        "@types/node": "22.10.7",
         "typescript": "*"
     },
     "engines": {
@@ -40,10 +40,10 @@
         "npm": "10.9.0"
     },
     "dependencies": {
-        "@aws-sdk/client-redshift": "^3.699.0",
-        "@aws-sdk/client-redshift-data": "^3.709.0",
-        "@aws-sdk/client-redshift-serverless": "^3.709.0",
-        "@nestjs/common": "^10.4.6",
-        "@onivoro/server-common": "^22.0.3"
+        "@aws-sdk/client-redshift": "^3.731.1",
+        "@aws-sdk/client-redshift-data": "^3.731.1",
+        "@aws-sdk/client-redshift-serverless": "^3.731.1",
+        "@nestjs/common": "^11.0.1",
+        "@onivoro/server-common": "^22.11.0"
     }
 }
